@@ -346,6 +346,7 @@ name = "chatbot-ui"
 version = "0.1.0"
 source = { editable = "apps/chatbot_ui" }
 dependencies = [
+    { name = "fastapi" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "streamlit" },
@@ -353,6 +354,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.128.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "streamlit", specifier = ">=1.58.0" },

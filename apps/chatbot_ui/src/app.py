@@ -1,16 +1,11 @@
 import json
 from pyexpat.errors import messages
 
-from streamlit.runtime.state import SessionState
-# from app import message, model_name, provider
-from chatbot_ui.core.config import config
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
-import logging 
-from fastapi import BackgroundTasks
-import requests
 import streamlit as st
+import requests
+import logging 
+from streamlit.runtime.state import SessionState
+from chatbot_ui.core.config import config
 
 def api_call(method, url, **kwargs):
 
@@ -64,13 +59,17 @@ with st.sidebar:
     st.session_state.model_name=model_name
 
 if "messages" not in st.session_state:
+    # print("Prompt: result reformatted 3")
     st.session_state.messages=[{"role": "assistant", "content": "Hello! How can I assist you today?"}]
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
+        # print("Prompt: result reformatted 2")
         st.markdown(message["content"])
 
 if prompt := st.chat_input("Hello! How can I assist you today?"):
+    # print("Prompt: result reformatted 1")
+
     st.session_state.messages.append({"role": "user", "content":prompt})
     # st.markdown(prompt)
     with st.chat_message("user"):
@@ -85,20 +84,20 @@ if prompt := st.chat_input("Hello! How can I assist you today?"):
         #     "models_name": st.session_state.model_name,
         #     "messages": st.session_state.messages}
 
-        # payload = { "provider":"Google", "model_name":"gemini-2.5-flash",
+        # payload = { "provider":"Groq", "models_name":"llama-3.3-70b-versatile",
         #     "messages": [{"role":"assistant", "content":"generate 5 random numbers!"}]}
 
-        payload = { "provider":st.session_state.provider, "model_name":st.session_state.model_name,
+        payload = { "provider":st.session_state.provider, "models_name":st.session_state.model_name,
             "messages": st.session_state.messages }
         
-        print("Request: ", payload)
+        # print("Request: ", payload)
         success, response = api_call("post", f"{config.API_URL}/chat", json=payload)
-        print("response data", response)
+        # print("response data", response)
         try:
             json_response = json.dumps(response, indent=4)
         except Exception:
             json_response = str(response)
-        print("JSON Response: ", json_response)
+        # print("JSON Response: ", json_response)
 
         # Determine answer from response in a few common formats
         answer = "No message returned from API"
@@ -169,10 +168,18 @@ if prompt := st.chat_input("Hello! How can I assist you today?"):
             # Fallback if something completely unexpected happens
             st.error(f"{response_json}")
 
-        # print("Answer: ", answer)
-        # st.write(answer)
+        answer1 = response.get("message", answer)
 
-        st.session_state.messages.append({"role": "assistant", "content": response_json.get("message", "No response") if isinstance(response_json, dict) else str(response)})
+        # print("Answer1*******************: ", answer1)
+
+        # print("Answer: ", answer)
+        # st.write(answer1)
+
+        # st.session_state.messages.append({"role": "assistant", "content": response_json.get("message", "No response") if isinstance(response_json, dict) else str(response)})
+
+        # st.session_state.messages.append({"role": "assistant", "content": response.get("message", answer1) if isinstance(response, dict) else str(response)})
+        st.markdown(response.get("message", answer1) if isinstance(response, dict) else str(response))
+
 
         #   return ChatResponse(answer=result)
     # st.session_state.messages.append({"role": "assistant", "content": answer})

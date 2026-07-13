@@ -20,6 +20,4 @@ dependencies = [
 members = [
     "apps/api",
     "apps/chatbot_ui",
-    "apps/api/libs",
-    "apps/api/lib",
 ]

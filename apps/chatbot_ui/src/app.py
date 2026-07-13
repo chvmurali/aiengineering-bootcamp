@@ -10,9 +10,12 @@ from pydantic import BaseModel
 import logging 
 from fastapi import BackgroundTasks
 import requests
-from streamlit import session_state, streamlit as st
+import streamlit as st
 
 def api_call(method, url, **kwargs):
+
+    print(f"API call: {method.upper()} {url} with params: {kwargs}")
+
 
     def _show_error_message(message):
         """Show error message as a popup on right corner"""
@@ -20,23 +23,23 @@ def api_call(method, url, **kwargs):
     try:
         response = getattr(requests, method)(url, **kwargs)
         try:
-            response_data=response.json()
-        except requests.exceptions.JSONDecodeError:
-            response_data = {"message", "Invalid response format from server"}
+            response_data = response.json()
+        except Exception:
+            response_data = {"message": "Invalid response format from server"}
 
         if response.ok:
             return True, response_data
-        
+        else:
             return False, response_data
     except requests.exceptions.ConnectionError:
         _show_error_message(" Connection error! Check your network connection")
-        return False, {"message", "connection error"}
+        return False, {"message": "connection error"}
     except requests.exceptions.Timeout:
         _show_error_message(" Timeout error! Check your network connection")
-        return False, {"message", "Request timeout"}
+        return False, {"message": "Request timeout"}
     except Exception as e :
-        _show_error_message(" Unexcepted error occurred", {str(e)})
-        return False, {"message", {str(e)}}
+        _show_error_message(f" Unexpected error occurred: {e}")
+        return False, {"message": str(e)}
 
 
 logging.basicConfig(
@@ -82,19 +85,97 @@ if prompt := st.chat_input("Hello! How can I assist you today?"):
         #     "models_name": st.session_state.model_name,
         #     "messages": st.session_state.messages}
 
-        payload = {"model": "llama-3.3-70b-versatile",
-            "messages": [{"role": "system", "content": "You are a helpful assistant."},
-                  {"role": "user", "content": "generate 5 random numbers!"}]}
+        # payload = { "provider":"Google", "model_name":"gemini-2.5-flash",
+        #     "messages": [{"role":"assistant", "content":"generate 5 random numbers!"}]}
 
-        print ("Request: ",  payload, indent=2)
-        output = api_call("post", f"{config.API_URL}/chat", json=payload)
-        print("response data" ,  output)
-        # response_data = output
-        # answer = response_data["message"]
+        payload = { "provider":st.session_state.provider, "model_name":st.session_state.model_name,
+            "messages": st.session_state.messages }
+        
+        print("Request: ", payload)
+        success, response = api_call("post", f"{config.API_URL}/chat", json=payload)
+        print("response data", response)
+        try:
+            json_response = json.dumps(response, indent=4)
+        except Exception:
+            json_response = str(response)
+        print("JSON Response: ", json_response)
+
+        # Determine answer from response in a few common formats
+        answer = "No message returned from API"
+        # if not success:
+        #     answer = response.get("message", answer) if isinstance(response, dict) else str(response)
+        # else:
+        #     if isinstance(response, dict):
+        #         # OpenAI-like: {choices: [{message: {content: "..."}}]}
+        #         choices = response.get("choices")
+        #         if choices and isinstance(choices, list):
+        #             first = choices[0]
+        #             # support dict or object-like
+        #             msg = None
+        #             if isinstance(first, dict):
+        #                 msg = first.get("message")
+        #                 if isinstance(msg, dict):
+        #                     answer = msg.get("content", answer)
+        #                 else:
+        #                     answer = str(msg) if msg is not None else answer
+        #             else:
+        #                 # fallback for objects with attributes
+        #                 answer = getattr(first, "message", getattr(first, "text", answer))
+        #         else:
+        #             # simple {"message": "..."}
+        #             answer = response.get("message", answer)
+        #     else:
+        #         # fallback for other types
+        #         answer = str(response)
+
+        # answer = response.get("message", answer)
+
+        # response is returned from api_call as (success, data) originally unpacked
+        response_json = response if isinstance(response, dict) else {}
+
+        # 1. Check if the API returned an error structure
+        if not success:
+            # response may be a dict with a message
+            msg = response_json.get("message") if isinstance(response_json, dict) else str(response)
+            st.error(f" API Error: {msg}")
+        elif "error" in response_json:
+            error_info = response_json["error"]
+            if isinstance(error_info, dict):
+                error_msg = error_info.get("message", str(error_info))
+            else:
+                error_msg = str(error_info)
+            st.error(f" API Error: {error_msg}")
+
+        # 2. Check if the expected 'choices' key exists
+        elif "choices" in response_json:
+            choices = response_json.get("choices", [])
+            if choices and isinstance(choices, list):
+                first_choice = choices[0]
+                if isinstance(first_choice, dict):
+                    message = first_choice.get("message", {})
+                    if isinstance(message, dict):
+                        assistant_response = message.get("content", "No response")
+                    else:
+                        assistant_response = str(message)
+                else:
+                    assistant_response = str(first_choice)
+            else:
+                assistant_response = "No response"
+            
+            # Display in Streamlit
+            with st.chat_message("assistant"):
+                st.markdown(assistant_response)
+        else:
+            # Fallback if something completely unexpected happens
+            st.error(f"{response_json}")
+
+        # print("Answer: ", answer)
         # st.write(answer)
-        st.write(output)
-#   return ChatResponse(answer=result)
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+
+        st.session_state.messages.append({"role": "assistant", "content": response_json.get("message", "No response") if isinstance(response_json, dict) else str(response)})
+
+        #   return ChatResponse(answer=result)
+    # st.session_state.messages.append({"role": "assistant", "content": answer})
 
 
 # ************************

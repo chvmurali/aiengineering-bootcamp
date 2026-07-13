@@ -47,10 +47,9 @@ def _messages_to_google_prompt(messages: list[dict[str, Any]]) -> str:
             parts.append(f"User: {content}")
     return "\n".join(parts)
 
-
 def run_llm(provider, model_name, messages, max_tokens=500):
-    print(f"Provider: {provider}")
-    
+    # print(f"Provider: {provider}")
+
     if provider == "OpenAI":
         client = OpenAI(api_key=config.OPENAI_API_KEY)
         return client.chat.completions.create(
